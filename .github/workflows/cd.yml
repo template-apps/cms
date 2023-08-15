@@ -29,7 +29,7 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{env.REGION}}
+          aws-region: ${{vars.REGION}}
 
       - name: Install eksctl
         run: |
@@ -44,14 +44,14 @@ jobs:
       - name: Create Persistence Volume/Claims for CMS Files
         if: inputs.shouldCreateVolume
         run: |
-          eksctl utils write-kubeconfig --cluster ${{env.CLUSTER}} --region ${{env.REGION}}
-          kubectl create namespace ${{env.NAMESPACE}} 2>/dev/null || true
+          eksctl utils write-kubeconfig --cluster ${{vars.CLUSTER}} --region ${{vars.REGION}}
+          kubectl create namespace ${{vars.NAMESPACE}} 2>/dev/null || true
           
           # Fetch EFS File System ID
           EFS_FS_ID=$(aws efs describe-file-systems \
-            --region ${{env.REGION}} \
+            --region ${{vars.REGION}} \
             --output json \
-            --query "FileSystems[?contains(CreationToken, 'efs-${{env.CLUSTER}}')].FileSystemId" \
+            --query "FileSystems[?contains(CreationToken, 'efs-${{vars.CLUSTER}}')].FileSystemId" \
             --output text)
           
           # Create EFS Access Point
@@ -59,7 +59,7 @@ jobs:
             --file-system-id $EFS_FS_ID \
             --posix-user Uid=1000,Gid=1000 \
             --root-directory "Path=/cms-files,CreationInfo={OwnerUid=1000,OwnerGid=1000,Permissions=777}" \
-            --region ${{env.REGION}} \
+            --region ${{vars.REGION}} \
             --query 'AccessPointId' \
             --output text)
           
@@ -107,7 +107,7 @@ jobs:
                   requests:
                       storage: 25Gi
               volumeName: cms-files-pv
-          " | kubectl apply -n ${{env.NAMESPACE}} -f -
+          " | kubectl apply -n ${{vars.NAMESPACE}} -f -
 
           echo "Persistent Volume for EFS created"
 
@@ -115,9 +115,9 @@ jobs:
         if: inputs.shouldDeployHelmChart
         uses: bitovi/github-actions-deploy-eks-helm@v1.2.4
         with:
-          aws-region: ${{env.REGION}}
-          cluster-name: ${{env.CLUSTER}}
+          aws-region: ${{vars.REGION}}
+          cluster-name: ${{vars.CLUSTER}}
           chart-repository: oci://registry-1.docker.io
           chart-path: bitnamicharts/wordpress
-          namespace: ${{env.NAMESPACE}}
+          namespace: ${{vars.NAMESPACE}}
           name: cms
