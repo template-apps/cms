@@ -146,7 +146,7 @@ jobs:
                             number: 80
             " | kubectl apply -n ${{vars.NAMESPACE}} -f -
 
-          echo Ingress created"
+          echo "Ingress created"
 
       - name: helm deploy
         if: inputs.shouldDeployHelmChart
