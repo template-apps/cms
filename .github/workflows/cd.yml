@@ -121,7 +121,7 @@ jobs:
           kubectl create namespace ${{vars.NAMESPACE}} 2>/dev/null || true
 
           echo "
-          apiVersion: apps/v1
+          apiVersion: networking.k8s.io/v1
           kind: Ingress
           metadata:
             name: cms-ingress
