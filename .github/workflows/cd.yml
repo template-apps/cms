@@ -139,8 +139,10 @@ jobs:
                   paths:
                     - path: /*
                       backend:
-                        serviceName: cms
-                        servicePort: 80
+                        service:
+                          name: cms
+                          port: 
+                            number: 80
             " | kubectl apply -n ${{vars.NAMESPACE}} -f -
 
           echo Ingress created"
