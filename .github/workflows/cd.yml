@@ -8,6 +8,9 @@ on:
       shouldCreateVolume:
         description: "Do you want to create Volume?"
         type: boolean
+      shouldCreateIngress:
+        description: "Do you want to create Ingress?"
+        type: boolean
       shouldDeployHelmChart:
         description: "Do you want to deploy Helm Chart?"
         type: boolean
@@ -111,6 +114,37 @@ jobs:
 
           echo "Persistent Volume for EFS created"
 
+      - name: Create Ingress for External ALB
+        if: inputs.shouldCreateIngress
+        run: |
+          eksctl utils write-kubeconfig --cluster ${{vars.CLUSTER}} --region ${{vars.REGION}}
+          kubectl create namespace ${{vars.NAMESPACE}} 2>/dev/null || true
+
+          echo "
+          apiVersion: extensions/v1
+          kind: Ingress
+          metadata:
+            name: cms-ingress
+            annotations:
+              kubernetes.io/ingress.class: "alb"
+              alb.ingress.kubernetes.io/scheme: "internet-facing"
+              alb.ingress.kubernetes.io/healthcheck-path: "/index.php"
+              alb.ingress.kubernetes.io/success-codes: "200,201,302"
+              alb.ingress.kubernetes.io/target-type: "ip"
+            labels:
+              app: cms-ingress
+          spec:
+            rules:
+              - http:
+                  paths:
+                    - path: /*
+                      backend:
+                        serviceName: cms
+                        servicePort: 80
+            " | kubectl apply -n ${{var.NAMESPACE}} -f -
+
+          echo Ingress created"
+
       - name: helm deploy
         if: inputs.shouldDeployHelmChart
         uses: bitovi/github-actions-deploy-eks-helm@v1.2.4
@@ -120,4 +154,5 @@ jobs:
           chart-repository: oci://registry-1.docker.io
           chart-path: bitnamicharts/wordpress
           namespace: ${{vars.NAMESPACE}}
+          values: replicaCount=3,persistence.existingClaim=cms-files-pvc,service.type=ClusterIP,resources.requests.cpu=1000m,resources.requests.memory=1024Mi
           name: cms
