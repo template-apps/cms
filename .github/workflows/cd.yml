@@ -1,25 +1,21 @@
-name: Continuous Deployment
+name: CMS (Wordpress Deployment) - Manual Workflow
 
 on:
-  pull_request:
-    types:
-      - closed
+  workflow_dispatch:
     branches:
       - main
-env:
-  CLUSTER: briklabs-eks-cluster
-  REGION: us-east-1
-  NAMESPACE: apps-template
-  SERVICE: cms
+    inputs:
+      shouldCreateVolume:
+        description: "Do you want to create Volume?"
+        type: boolean
+      shouldDeployHelmChart:
+        description: "Do you want to deploy Helm Chart?"
+        type: boolean
 
 jobs:
   deploy:
-    name: Deploy Wordpress CMS With MySQL DB
-    if: github.event.pull_request.merged == true
+    name: Deploy CMS and create required Infrastructure
     runs-on: ubuntu-latest
-    permissions:
-      id-token: write
-      contents: write
 
     steps:
       - name: Checkout code
@@ -35,7 +31,88 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{env.REGION}}
 
+      - name: Install eksctl
+        run: |
+          ARCH=amd64
+          PLATFORM=$(uname -s)_$ARCH
+          curl -sLO "https://github.com/eksctl-io/eksctl/releases/latest/download/eksctl_$PLATFORM.tar.gz"
+          # (Optional) Verify checksum
+          curl -sL "https://github.com/eksctl-io/eksctl/releases/latest/download/eksctl_checksums.txt" | grep $PLATFORM | sha256sum --check
+          tar -xzf eksctl_$PLATFORM.tar.gz -C /tmp && rm eksctl_$PLATFORM.tar.gz
+          sudo mv /tmp/eksctl /usr/local/bin
+
+      - name: Create Persistence Volume/Claims for CMS Files
+        if: inputs.shouldCreateVolume
+        run: |
+          eksctl utils write-kubeconfig --cluster ${{env.CLUSTER}} --region ${{env.REGION}}
+          kubectl create namespace ${{env.NAMESPACE}} 2>/dev/null || true
+          
+          # Fetch EFS File System ID
+          EFS_FS_ID=$(aws efs describe-file-systems \
+            --region ${{env.REGION}} \
+            --output json \
+            --query "FileSystems[?contains(CreationToken, 'efs-${{env.CLUSTER}}')].FileSystemId" \
+            --output text)
+          
+          # Create EFS Access Point
+          EFS_AP=$(aws efs create-access-point \
+            --file-system-id $EFS_FS_ID \
+            --posix-user Uid=1000,Gid=1000 \
+            --root-directory "Path=/cms-files,CreationInfo={OwnerUid=1000,OwnerGid=1000,Permissions=777}" \
+            --region ${{env.REGION}} \
+            --query 'AccessPointId' \
+            --output text)
+          
+          echo "Access point created"
+          
+          echo "
+          apiVersion: storage.k8s.io/v1
+          kind: CSIDriver
+          metadata:
+              name: efs.csi.aws.com
+          spec:
+              attachRequired: false
+          ---
+          kind: StorageClass
+          apiVersion: storage.k8s.io/v1
+          metadata:
+              name: efs-sc
+          provisioner: efs.csi.aws.com
+          ---
+          apiVersion: v1
+          kind: PersistentVolume
+          metadata:
+              name: cms-files-pv
+          spec:
+              capacity:
+                  storage: 50Gi
+              volumeMode: Filesystem
+              accessModes:
+                  - ReadWriteMany
+              persistentVolumeReclaimPolicy: Retain
+              storageClassName: efs-sc
+              csi:
+                  driver: efs.csi.aws.com
+                  volumeHandle: $EFS_FS_ID::$EFS_AP
+          ---
+          apiVersion: v1
+          kind: PersistentVolumeClaim
+          metadata:
+              name: cms-files-pvc
+          spec:
+              accessModes:
+                  - ReadWriteMany
+              storageClassName: efs-sc
+              resources:
+                  requests:
+                      storage: 25Gi
+              volumeName: cms-files-pv
+          " | kubectl apply -n ${{env.NAMESPACE}} -f -
+
+          echo "Persistent Volume for EFS created"
+
       - name: helm deploy
+        if: inputs.shouldDeployHelmChart
         uses: bitovi/github-actions-deploy-eks-helm@v1.2.4
         with:
           aws-region: ${{env.REGION}}
@@ -43,5 +120,4 @@ jobs:
           chart-repository: oci://registry-1.docker.io
           chart-path: bitnamicharts/wordpress
           namespace: ${{env.NAMESPACE}}
-          name: ${{env.SERVICE}}
-
+          name: cms
