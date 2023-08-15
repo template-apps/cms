@@ -157,5 +157,5 @@ jobs:
           chart-repository: oci://registry-1.docker.io
           chart-path: bitnamicharts/wordpress
           namespace: ${{vars.NAMESPACE}}
-          values: replicaCount=3,persistence.existingClaim=cms-files-pvc,service.type=ClusterIP,resources.requests.cpu=1000m,resources.requests.memory=1024Mi
+          values: replicaCount=3,persistence.existingClaim=cms-files-pvc,mariadb.primary.persistence.existingClaim=cms-files-pvc,service.type=ClusterIP,resources.requests.cpu=1000m,resources.requests.memory=1024Mi
           name: cms
