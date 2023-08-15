@@ -61,7 +61,7 @@ jobs:
           EFS_AP=$(aws efs create-access-point \
             --file-system-id $EFS_FS_ID \
             --posix-user Uid=1000,Gid=1000 \
-            --root-directory "Path=/cms-files,CreationInfo={OwnerUid=1000,OwnerGid=1000,Permissions=777}" \
+            --root-directory "Path=/bitnami,CreationInfo={OwnerUid=1000,OwnerGid=1000,Permissions=777}" \
             --region ${{vars.REGION}} \
             --query 'AccessPointId' \
             --output text)
