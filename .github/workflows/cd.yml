@@ -150,10 +150,10 @@ jobs:
 
       - name: Fetch RDS DB Instance Identifier
         if: inputs.shouldDeployHelmChart
-        run: |
-          export DB_INSTANCE_IDENTIFIER=$(aws rds describe-db-instances --db-instance-identifier ${{vars.CLUSTER}}-db --region ${{vars.REGION}} --query "DBInstances[].Endpoint.Address" --output text)
+        env:
+          DB_INSTANCE_IDENTIFIER=$(aws rds describe-db-instances --db-instance-identifier ${{vars.CLUSTER}}-db --region ${{vars.REGION}} --query "DBInstances[].Endpoint.Address" --output text)
+        run:
           echo $DB_INSTANCE_IDENTIFIER
-          echo ${{env.DB_INSTANCE_IDENTIFIER}}
 
       - name: helm deploy CMS(Wordpress) chart
         if: inputs.shouldDeployHelmChart
