@@ -137,9 +137,10 @@ jobs:
               app: cms-ingress
           spec:
             rules:
-              - http:
+            - host: ${{ vars.DOMAIN }}
+              http:
                   paths:
-                    - path: /*
+                    - path: /
                       pathType: Prefix  
                       backend:
                         service:
