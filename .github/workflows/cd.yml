@@ -131,7 +131,7 @@ jobs:
               kubernetes.io/ingress.class: "alb"
               alb.ingress.kubernetes.io/scheme: "internet-facing"
               alb.ingress.kubernetes.io/healthcheck-path: "/index.php"
-              alb.ingress.kubernetes.io/success-codes: "200,201,302"
+              alb.ingress.kubernetes.io/success-codes: "200,201,301,302"
               alb.ingress.kubernetes.io/target-type: "ip"
             labels:
               app: cms-ingress
