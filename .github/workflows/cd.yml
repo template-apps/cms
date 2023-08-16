@@ -148,19 +148,16 @@ jobs:
 
           echo "Ingress created"
 
-      - name: Fetch RDS DB Instance Identifier
-        if: inputs.shouldDeployHelmChart
-        run: |
-          DB_INSTANCE_IDENTIFIER=$(aws rds describe-db-instances --db-instance-identifier ${{vars.CLUSTER}}-db --region ${{vars.REGION}} --query "DBInstances[].Endpoint.Address" --output text)
-
       - name: helm deploy CMS(Wordpress) chart
         if: inputs.shouldDeployHelmChart
         uses: bitovi/github-actions-deploy-eks-helm@v1.2.4
+        env:
+          DB_SERVER_HOST=$(aws rds describe-db-instances --db-instance-identifier ${{vars.CLUSTER}}-db --region ${{vars.REGION}} --query "DBInstances[].Endpoint.Address" --output text)
         with:
           aws-region: ${{vars.REGION}}
           cluster-name: ${{vars.CLUSTER}}
           chart-repository: oci://registry-1.docker.io
           chart-path: bitnamicharts/wordpress
           namespace: ${{vars.NAMESPACE}}
-          values: externalDatabase.host=${{env.DB_INSTANCE_IDENTIFIER}},externalDatabase.user=${{secrets.MYSQL_MASTER_USER}},externalDatabase.password=${{secrets.MYSQL_MASTER_PASSWORD}},externalDatabase.database=${{secrets.MYSQL_DB_NAME}},mariadb.enabled=false,replicaCount=3,persistence.existingClaim=cms-files-pvc,service.type=ClusterIP,resources.requests.cpu=1000m,resources.requests.memory=1024Mi
+          values: externalDatabase.user=${{secrets.MYSQL_MASTER_USER}},externalDatabase.password=${{secrets.MYSQL_MASTER_PASSWORD}},externalDatabase.database=${{secrets.MYSQL_DB_NAME}},mariadb.enabled=false,replicaCount=3,persistence.existingClaim=cms-files-pvc,service.type=ClusterIP,resources.requests.cpu=1000m,resources.requests.memory=1024Mi
           name: cms
