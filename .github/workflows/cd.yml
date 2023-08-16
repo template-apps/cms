@@ -152,7 +152,9 @@ jobs:
         if: inputs.shouldDeployHelmChart
         id: dbInstanceIdentifierStep
         run:
-          echo "dbInstanceIdentifier=$(aws rds describe-db-instances --db-instance-identifier ${{vars.CLUSTER}}-db --region ${{vars.REGION}} --query "DBInstances[].Endpoint.Address" --output text)" >> $GITHUB_OUTPUT
+          dbInstanceIdentifier=$(aws rds describe-db-instances --db-instance-identifier ${{vars.CLUSTER}}-db --region ${{vars.REGION}} --query "DBInstances[].Endpoint.Address" --output text)
+          echo "Output [$dbInstanceIdentifier]"
+          echo "dbInstanceIdentifier=$dbInstanceIdentifier" >> $GITHUB_OUTPUT
 
       - name: helm deploy CMS(Wordpress) chart
         if: inputs.shouldDeployHelmChart
