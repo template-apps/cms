@@ -148,10 +148,10 @@ jobs:
 
           echo "Ingress created"
 
-      - name: helm deploy
+      - name: helm deploy CMS(Wordpress) chart
         if: inputs.shouldDeployHelmChart
         uses: bitovi/github-actions-deploy-eks-helm@v1.2.4
-        env:
+        run: |
           DB_INSTANCE_IDENTIFIER: $(aws rds describe-db-instances --db-instance-identifier ${{vars.CLUSTER}}-db --region ${{vars.REGION}} --query "DBInstances[].Endpoint.Address" --output text)
         with:
           aws-region: ${{vars.REGION}}
