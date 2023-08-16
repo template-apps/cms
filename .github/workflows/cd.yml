@@ -133,11 +133,13 @@ jobs:
               alb.ingress.kubernetes.io/healthcheck-path: "/index.php"
               alb.ingress.kubernetes.io/success-codes: "200,201,301,302"
               alb.ingress.kubernetes.io/target-type: "ip"
+              alb.ingress.kubernetes.io/certificate-arn: "${{ secrets.CERTIFICATE_ARN }}"
             labels:
               app: cms-ingress
           spec:
             rules:
-             - http:
+            - host: ${{ vars.DOMAIN }}
+              http:
                   paths:
                     - path: /
                       pathType: Prefix  
