@@ -143,9 +143,9 @@ jobs:
                       pathType: Prefix  
                       backend:
                         service:
-                          name: cms
+                          name: cms-wordpress
                           port: 
-                            number: 8080
+                            number: 80
             " | kubectl apply -n ${{vars.NAMESPACE}} -f -
 
           echo "Ingress created"
