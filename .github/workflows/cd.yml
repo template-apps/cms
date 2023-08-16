@@ -162,5 +162,5 @@ jobs:
           chart-repository: oci://registry-1.docker.io
           chart-path: bitnamicharts/wordpress
           namespace: ${{vars.NAMESPACE}}
-          values: externalDatabase.host=$DB_INSTANCE_IDENTIFIER,externalDatabase.user=${{secrets.MYSQL_MASTER_USER}},externalDatabase.password=${{secrets.MYSQL_MASTER_PASSWORD}},externalDatabase.database=${{secrets.MYSQL_DB_NAME}},mariadb.enabled=false,replicaCount=3,persistence.existingClaim=cms-files-pvc,service.type=ClusterIP,resources.requests.cpu=1000m,resources.requests.memory=1024Mi
+          values: externalDatabase.host=${{DB_INSTANCE_IDENTIFIER}},externalDatabase.user=${{secrets.MYSQL_MASTER_USER}},externalDatabase.password=${{secrets.MYSQL_MASTER_PASSWORD}},externalDatabase.database=${{secrets.MYSQL_DB_NAME}},mariadb.enabled=false,replicaCount=3,persistence.existingClaim=cms-files-pvc,service.type=ClusterIP,resources.requests.cpu=1000m,resources.requests.memory=1024Mi
           name: cms
