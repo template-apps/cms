@@ -167,12 +167,3 @@ jobs:
           namespace: ${{vars.NAMESPACE}}
           values: externalDatabase.host=${{steps.dbInstanceIdentifierStep.outputs.dbInstanceIdentifier}},externalDatabase.user=${{secrets.MYSQL_MASTER_USER}},externalDatabase.password=${{secrets.MYSQL_MASTER_PASSWORD}},externalDatabase.database=${{secrets.MYSQL_DB_NAME}},mariadb.enabled=false,replicaCount=3,persistence.existingClaim=cms-files-pvc,service.type=ClusterIP,resources.requests.cpu=1000m,resources.requests.memory=1024Mi
           name: cms
-
-      - name: Set up secret file
-        env:
-          DEBUG_PASSWORD: ${{ secrets.MYSQL_MASTER_PASSWORD }}
-        run: |
-          echo $DEBUG_PASSWORD >> secrets.txt
-
-      - name: Run tmate
-        uses: mxschmitt/action-tmate@v2
