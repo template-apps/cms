@@ -158,6 +158,28 @@ jobs:
           echo "Output [$dbInstanceIdentifier]"
           echo "dbInstanceIdentifier=$dbInstanceIdentifier" >> $GITHUB_OUTPUT
 
+      - name: Create DB if it doesn't exist
+        if: inputs.shouldDeployHelmChart
+        run: |
+          # Check if the RDS instance exists
+          if aws rds describe-db-instances --db-instance-identifier ${{steps.dbInstanceIdentifierStep.outputs.dbInstanceIdentifier}} >/dev/null 2>&1; then
+              echo "RDS instance exists: ${{steps.dbInstanceIdentifierStep.outputs.dbInstanceIdentifier}}"
+              # Check if the database already exists within the RDS instance
+              if ! aws rds describe-databases --db-instance-identifier ${{steps.dbInstanceIdentifierStep.outputs.dbInstanceIdentifier}} --query "Databases[?DBName=='cms'].DBName" --output text >/dev/null 2>&1; then
+                  # Create the new database
+                  aws rds create-db \
+                    --db-instance-identifier ${{steps.dbInstanceIdentifierStep.outputs.dbInstanceIdentifier}} \
+                    --db-name cms \
+                    --master-username "${{secrets.MYSQL_MASTER_USER}}" \
+                    --master-user-password "${{secrets.MYSQL_MASTER_PASSWORD}}"
+                  echo "Database created: cms"
+              else
+                  echo "Database already exists: cms"
+              fi
+          else
+              echo "RDS instance does not exist: ${{steps.dbInstanceIdentifierStep.outputs.dbInstanceIdentifier}}"
+          fi
+
       - name: helm deploy CMS(Wordpress) chart
         if: inputs.shouldDeployHelmChart
         uses: bitovi/github-actions-deploy-eks-helm@v1.2.4
@@ -167,5 +189,5 @@ jobs:
           chart-repository: oci://registry-1.docker.io
           chart-path: bitnamicharts/wordpress
           namespace: ${{vars.NAMESPACE}}
-          values: externalDatabase.host=${{steps.dbInstanceIdentifierStep.outputs.dbInstanceIdentifier}},externalDatabase.user=${{secrets.MYSQL_MASTER_USER}},externalDatabase.password=${{secrets.MYSQL_MASTER_PASSWORD}},mariadb.enabled=false,replicaCount=${{env.REPLICA_COUNT}},persistence.existingClaim=cms-files-pvc,service.type=ClusterIP,resources.requests.cpu=1000m,resources.requests.memory=1024Mi
+          values: externalDatabase.host=${{steps.dbInstanceIdentifierStep.outputs.dbInstanceIdentifier}},externalDatabase.database=cms,externalDatabase.user=${{secrets.MYSQL_MASTER_USER}},externalDatabase.password=${{secrets.MYSQL_MASTER_PASSWORD}},mariadb.enabled=false,replicaCount=${{env.REPLICA_COUNT}},persistence.existingClaim=cms-files-pvc,service.type=ClusterIP,resources.requests.cpu=1000m,resources.requests.memory=1024Mi
           name: cms
