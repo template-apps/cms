@@ -122,8 +122,8 @@ jobs:
           eksctl utils write-kubeconfig --cluster ${{vars.CLUSTER}} --region ${{vars.REGION}}
           kubectl create namespace ${{vars.NAMESPACE}} 2>/dev/null || true
           
-          HOST = ${{ format('{0}.{1}', 'cms', secrets.DOMAIN ) }}
-          echo $HOST
+          INGRESS_HOST = ${{ format('{0}.{1}', 'cms', secrets.DOMAIN ) }}
+          echo $INGRESS_HOST
           echo ${{ secrets.CERTIFICATE_ARN }}
           
           echo "
@@ -141,7 +141,7 @@ jobs:
               app: cms-ingress
           spec:
             rules:
-            - host: $HOST
+            - host: $INGRESS_HOST
               http:
                   paths:
                     - path: /
