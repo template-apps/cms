@@ -112,7 +112,7 @@ jobs:
                   requests:
                       storage: 25Gi
               volumeName: cms-files-pv
-          " | kubectl apply -n ${{vars.NAMESPACE}} -f -
+          " | kubectl replace -n ${{vars.NAMESPACE}} -f -
 
           echo "Persistent Volume for EFS created"
 
@@ -148,7 +148,7 @@ jobs:
                           name: cms-wordpress
                           port: 
                             number: 80
-            " | kubectl apply -n ${{vars.NAMESPACE}} -f -
+            " | kubectl replace -n ${{vars.NAMESPACE}} -f -
 
           echo "Ingress created"
 
