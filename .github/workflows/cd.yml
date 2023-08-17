@@ -138,7 +138,7 @@ jobs:
               app: cms-ingress
           spec:
             rules:
-            - host: ${{ format('{0}.{1}', "cms", secrets.DOMAIN) }}
+            - host: ${{ format('{0}.{1}', cms, secrets.DOMAIN) }}
               http:
                   paths:
                     - path: /
