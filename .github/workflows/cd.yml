@@ -124,6 +124,7 @@ jobs:
           
           HOST = ${{ format('{0}.{1}', 'cms', secrets.DOMAIN ) }}
           echo $HOST
+          echo ${{ secrets.CERTIFICATE_ARN }}
           
           echo "
           apiVersion: networking.k8s.io/v1
