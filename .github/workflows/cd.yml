@@ -137,7 +137,7 @@ jobs:
               app: cms-ingress
           spec:
             rules:
-            - host: cms.joincypher.com
+            - host: ${{ format('{0}.{1}', 'cms'. secrets.DOMAIN ) }}
               http:
                   paths:
                     - path: /
