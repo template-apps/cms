@@ -116,8 +116,8 @@ jobs:
 
           echo "Persistent Volume for EFS created"
 
-      - name: Create Ingress for External ALB
-        if: inputs.shouldCreateIngress
+      - name: Create CMS Ingress for External ALB and TLS (ACM Certificate)
+        if: inputs.shouldCreateIngress && secrets.CERTIFICATE_ARN
         run: |
           eksctl utils write-kubeconfig --cluster ${{vars.CLUSTER}} --region ${{vars.REGION}}
           kubectl create namespace ${{vars.NAMESPACE}} 2>/dev/null || true
@@ -126,7 +126,7 @@ jobs:
           apiVersion: networking.k8s.io/v1
           kind: Ingress
           metadata:
-            name: cms-ingress
+            name: cms
             annotations:
               kubernetes.io/ingress.class: "alb"
               alb.ingress.kubernetes.io/scheme: "internet-facing"
@@ -134,8 +134,45 @@ jobs:
               alb.ingress.kubernetes.io/success-codes: "200,201,301,302"
               alb.ingress.kubernetes.io/target-type: "ip"
               alb.ingress.kubernetes.io/certificate-arn: "${{ secrets.CERTIFICATE_ARN }}"
+              alb.ingress.kubernetes.io/listen-ports: "[{\"HTTP\": 80}, {\"HTTPS\": 443}]"
+              alb.ingress.kubernetes.io/ssl-redirect: "443"
             labels:
-              app: cms-ingress
+              app: cms
+          spec:
+            rules:
+            - host: ${{ format('{0}.{1}', 'cms', vars.DOMAIN ) }}
+              http:
+                  paths:
+                    - path: /
+                      pathType: Prefix  
+                      backend:
+                        service:
+                          name: cms-wordpress
+                          port: 
+                            number: 80
+            " | kubectl replace -n ${{vars.NAMESPACE}} -f -
+
+          echo "Ingress created"
+
+      - name: Create CMS Ingress for External ALB but only HTTP
+        if: inputs.shouldCreateIngress && !secrets.CERTIFICATE_ARN
+        run: |
+          eksctl utils write-kubeconfig --cluster ${{vars.CLUSTER}} --region ${{vars.REGION}}
+          kubectl create namespace ${{vars.NAMESPACE}} 2>/dev/null || true
+          
+          echo "
+          apiVersion: networking.k8s.io/v1
+          kind: Ingress
+          metadata:
+            name: cms
+            annotations:
+              kubernetes.io/ingress.class: "alb"
+              alb.ingress.kubernetes.io/scheme: "internet-facing"
+              alb.ingress.kubernetes.io/healthcheck-path: "/index.php"
+              alb.ingress.kubernetes.io/success-codes: "200,201,301,302"
+              alb.ingress.kubernetes.io/target-type: "ip"
+            labels:
+              app: cms
           spec:
             rules:
             - host: ${{ format('{0}.{1}', 'cms', vars.DOMAIN ) }}
