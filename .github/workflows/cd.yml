@@ -62,7 +62,7 @@ jobs:
             --posix-user Uid=1000,Gid=1000 \
             --root-directory "Path=/bitnami,CreationInfo={OwnerUid=1000,OwnerGid=1000,Permissions=777}" \
             --region ${{vars.REGION}} \
-            --tags Key=Service,Value=cms-wordpress \
+            --tags Key=Service,Value=cms \
             --query 'AccessPointId' \
             --output text)
           echo "Access point created"
@@ -72,13 +72,13 @@ jobs:
         run: |
           dbInstanceIdentifier=$(aws rds describe-db-instances --db-instance-identifier ${{vars.CLUSTER}}-db --region ${{vars.REGION}} --query "DBInstances[].Endpoint.Address" --output text)
           efsId=$(aws efs describe-file-systems --region ${{vars.REGION}} --output json --query "FileSystems[?contains(CreationToken, 'efs-${{vars.CLUSTER}}')].FileSystemId" --output text)
-          efsAp=$(aws efs describe-access-points --region ${{vars.REGION}} --output json --query "AccessPoints[?contains(FileSystemId, '$efsId') && Tags[?Key=='Service' && Value=='cms-wordpress']].AccessPointId" --output text)
+          efsAp=$(aws efs describe-access-points --region ${{vars.REGION}} --output json --query "AccessPoints[?contains(FileSystemId, '$efsId') && Tags[?Key=='Service' && Value=='cms']].AccessPointId" --output text)
           
           echo "dbInstanceIdentifier=$dbInstanceIdentifier" >> $GITHUB_OUTPUT
           echo "efsId=$efsId" >> $GITHUB_OUTPUT
           echo "efsAP=$efsAP" >> $GITHUB_OUTPUT
 
-      - name: helm deploy CMS(Wordpress) chart
+      - name: helm upgrade CMS(Wordpress) chart
         if: inputs.deployWPHelmChart
         uses: bitovi/github-actions-deploy-eks-helm@v1.2.4
         with:
@@ -87,8 +87,8 @@ jobs:
           chart-repository: oci://registry-1.docker.io
           chart-path: bitnamicharts/wordpress
           namespace: ${{vars.NAMESPACE}}
-          values: externalDatabase.host=${{steps.idFetcher.outputs.dbInstanceIdentifier}},externalDatabase.database=cms,externalDatabase.user=${{secrets.MYSQL_MASTER_USER}},externalDatabase.password=${{secrets.MYSQL_MASTER_PASSWORD}},mariadb.enabled=false,replicaCount=${{env.REPLICA_COUNT}},persistence.existingClaim=cms-files-pvc,service.type=ClusterIP,resources.requests.cpu=1000m,resources.requests.memory=1024Mi
-          name: cms
+          values: externalDatabase.host=${{steps.idFetcher.outputs.dbInstanceIdentifier}},externalDatabase.database=cms,externalDatabase.user=${{secrets.MYSQL_MASTER_USER}},externalDatabase.password=${{secrets.MYSQL_MASTER_PASSWORD}},mariadb.enabled=false,replicaCount=${{env.REPLICA_COUNT}},persistence.existingClaim=cms-files-pvc,nameOverride=cms,service.type=ClusterIP,resources.requests.cpu=1000m,resources.requests.memory=1024Mi
+          name: cms-bitnami
 
       - name: helm upgrade Additional Helm chart
         if: inputs.deployAdditionalHelmChart
@@ -100,4 +100,4 @@ jobs:
           chart-path: infrastructure/helm
           namespace: ${{vars.NAMESPACE}}
           values: ingress.enabled=true,ingress.certificateARN=${{ secrets.CERTIFICATE_ARN }},ingress.host=${{ format('{0}.{1}', 'cms', vars.DOMAIN) }},volume.enabled=true,volume.efsId=${{steps.idFetcher.outputs.efsId}},volume.efsAp=${{steps.idFetcher.outputs.efsAp}}
-          name: cms-additional
+          name: cms

@@ -10,5 +10,5 @@ volume:
   efsAP: "to be overridden"
 
 service:
-  name: cms-wordpress
+  name: cms
   port: 80
