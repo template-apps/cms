@@ -5,17 +5,17 @@ on:
     branches:
       - main
     inputs:
-      shouldCreateVolume:
-        description: "Do you want to create Volume?"
+      provisionAP:
+        description: "Provision EFS Access point?"
         type: boolean
-      shouldCreateIngress:
-        description: "Do you want to create Ingress?"
+      deployWPHelmChart:
+        description: "Install/Upgrade Helm Chart for Bitnami Wordpress?"
         type: boolean
-      shouldDeployHelmChart:
-        description: "Do you want to deploy Helm Chart?"
+      deployAdditionalHelmChart:
+        description: "Install/Upgrade Additional Helm Chart (Ingress, VC)?"
         type: boolean
 env:
-  REPLICA_COUNT: 2
+  REPLICA_COUNT: 1
 
 jobs:
   deploy:
@@ -46,12 +46,9 @@ jobs:
           tar -xzf eksctl_$PLATFORM.tar.gz -C /tmp && rm eksctl_$PLATFORM.tar.gz
           sudo mv /tmp/eksctl /usr/local/bin
 
-      - name: Create Persistence Volume/Claims for CMS Files
-        if: inputs.shouldCreateVolume
+      - name: Create Access Point for EFS volume
+        if: inputs.provisionAP
         run: |
-          eksctl utils write-kubeconfig --cluster ${{vars.CLUSTER}} --region ${{vars.REGION}}
-          kubectl create namespace ${{vars.NAMESPACE}} 2>/dev/null || true
-          
           # Fetch EFS File System ID
           EFS_FS_ID=$(aws efs describe-file-systems \
             --region ${{vars.REGION}} \
@@ -65,140 +62,24 @@ jobs:
             --posix-user Uid=1000,Gid=1000 \
             --root-directory "Path=/bitnami,CreationInfo={OwnerUid=1000,OwnerGid=1000,Permissions=777}" \
             --region ${{vars.REGION}} \
+            --tags service=cms-wordpress \
             --query 'AccessPointId' \
             --output text)
-          
           echo "Access point created"
-          
-          echo "
-          apiVersion: storage.k8s.io/v1
-          kind: CSIDriver
-          metadata:
-              name: efs.csi.aws.com
-          spec:
-              attachRequired: false
-          ---
-          kind: StorageClass
-          apiVersion: storage.k8s.io/v1
-          metadata:
-              name: efs-sc
-          provisioner: efs.csi.aws.com
-          ---
-          apiVersion: v1
-          kind: PersistentVolume
-          metadata:
-              name: cms-files-pv
-          spec:
-              capacity:
-                  storage: 50Gi
-              volumeMode: Filesystem
-              accessModes:
-                  - ReadWriteMany
-              persistentVolumeReclaimPolicy: Retain
-              storageClassName: efs-sc
-              csi:
-                  driver: efs.csi.aws.com
-                  volumeHandle: $EFS_FS_ID::$EFS_AP
-          ---
-          apiVersion: v1
-          kind: PersistentVolumeClaim
-          metadata:
-              name: cms-files-pvc
-          spec:
-              accessModes:
-                  - ReadWriteMany
-              storageClassName: efs-sc
-              resources:
-                  requests:
-                      storage: 25Gi
-              volumeName: cms-files-pv
-          " | kubectl replace -n ${{vars.NAMESPACE}} -f -
 
-          echo "Persistent Volume for EFS created"
-
-      - name: Create CMS Ingress for External ALB and TLS (ACM Certificate)
-        if: inputs.shouldCreateIngress && secrets.CERTIFICATE_ARN
-        run: |
-          eksctl utils write-kubeconfig --cluster ${{vars.CLUSTER}} --region ${{vars.REGION}}
-          kubectl create namespace ${{vars.NAMESPACE}} 2>/dev/null || true
-          
-          echo "
-          apiVersion: networking.k8s.io/v1
-          kind: Ingress
-          metadata:
-            name: cms
-            annotations:
-              kubernetes.io/ingress.class: "alb"
-              alb.ingress.kubernetes.io/scheme: "internet-facing"
-              alb.ingress.kubernetes.io/healthcheck-path: "/index.php"
-              alb.ingress.kubernetes.io/success-codes: "200,201,301,302"
-              alb.ingress.kubernetes.io/target-type: "ip"
-              alb.ingress.kubernetes.io/certificate-arn: "${{ secrets.CERTIFICATE_ARN }}"
-              alb.ingress.kubernetes.io/listen-ports: "[{\"HTTP\": 80}, {\"HTTPS\": 443}]"
-              alb.ingress.kubernetes.io/ssl-redirect: "443"
-            labels:
-              app: cms
-          spec:
-            rules:
-            - host: ${{ format('{0}.{1}', 'cms', vars.DOMAIN ) }}
-              http:
-                  paths:
-                    - path: /
-                      pathType: Prefix  
-                      backend:
-                        service:
-                          name: cms-wordpress
-                          port: 
-                            number: 80
-            " | kubectl replace -n ${{vars.NAMESPACE}} -f -
-
-          echo "Ingress created"
-
-      - name: Create CMS Ingress for External ALB but only HTTP
-        if: inputs.shouldCreateIngress && !secrets.CERTIFICATE_ARN
-        run: |
-          eksctl utils write-kubeconfig --cluster ${{vars.CLUSTER}} --region ${{vars.REGION}}
-          kubectl create namespace ${{vars.NAMESPACE}} 2>/dev/null || true
-          
-          echo "
-          apiVersion: networking.k8s.io/v1
-          kind: Ingress
-          metadata:
-            name: cms
-            annotations:
-              kubernetes.io/ingress.class: "alb"
-              alb.ingress.kubernetes.io/scheme: "internet-facing"
-              alb.ingress.kubernetes.io/healthcheck-path: "/index.php"
-              alb.ingress.kubernetes.io/success-codes: "200,201,301,302"
-              alb.ingress.kubernetes.io/target-type: "ip"
-            labels:
-              app: cms
-          spec:
-            rules:
-            - host: ${{ format('{0}.{1}', 'cms', vars.DOMAIN ) }}
-              http:
-                  paths:
-                    - path: /
-                      pathType: Prefix  
-                      backend:
-                        service:
-                          name: cms-wordpress
-                          port: 
-                            number: 80
-            " | kubectl replace -n ${{vars.NAMESPACE}} -f -
-
-          echo "Ingress created"
-
-      - name: Fetch RDS DB Instance Identifier
-        if: inputs.shouldDeployHelmChart
-        id: dbInstanceIdentifierStep
+      - name: Fetch RDS InstanceId, EFS Id & EFS AP
+        id: idFetcher
         run: |
           dbInstanceIdentifier=$(aws rds describe-db-instances --db-instance-identifier ${{vars.CLUSTER}}-db --region ${{vars.REGION}} --query "DBInstances[].Endpoint.Address" --output text)
-          echo "Output [$dbInstanceIdentifier]"
+          efsId=$(aws efs describe-file-systems --region ${{vars.REGION}} --output json --query "FileSystems[?contains(CreationToken, 'efs-${{vars.CLUSTER}}')].FileSystemId" --output text)
+          efsAp=$(aws efs describe-access-points --region ${{vars.REGION}} --output json --query "AccessPoints[?contains(FileSystemId, '$efsId') && Tags[?Key=='service' && Value=='cms-wordpress']].AccessPointId" --output text)
+          
           echo "dbInstanceIdentifier=$dbInstanceIdentifier" >> $GITHUB_OUTPUT
+          echo "efsId=$efsId" >> $GITHUB_OUTPUT
+          echo "efsAP=$efsAP" >> $GITHUB_OUTPUT
 
       - name: helm deploy CMS(Wordpress) chart
-        if: inputs.shouldDeployHelmChart
+        if: inputs.deployWPHelmChart
         uses: bitovi/github-actions-deploy-eks-helm@v1.2.4
         with:
           aws-region: ${{vars.REGION}}
@@ -206,5 +87,17 @@ jobs:
           chart-repository: oci://registry-1.docker.io
           chart-path: bitnamicharts/wordpress
           namespace: ${{vars.NAMESPACE}}
-          values: externalDatabase.host=${{steps.dbInstanceIdentifierStep.outputs.dbInstanceIdentifier}},externalDatabase.database=cms,externalDatabase.user=${{secrets.MYSQL_MASTER_USER}},externalDatabase.password=${{secrets.MYSQL_MASTER_PASSWORD}},mariadb.enabled=false,replicaCount=${{env.REPLICA_COUNT}},persistence.existingClaim=cms-files-pvc,service.type=ClusterIP,resources.requests.cpu=1000m,resources.requests.memory=1024Mi
+          values: externalDatabase.host=${{steps.idFetcher.outputs.dbInstanceIdentifier}},externalDatabase.database=cms,externalDatabase.user=${{secrets.MYSQL_MASTER_USER}},externalDatabase.password=${{secrets.MYSQL_MASTER_PASSWORD}},mariadb.enabled=false,replicaCount=${{env.REPLICA_COUNT}},persistence.existingClaim=cms-files-pvc,service.type=ClusterIP,resources.requests.cpu=1000m,resources.requests.memory=1024Mi
           name: cms
+
+      - name: helm upgrade Additional Helm chart
+        if: inputs.deployAdditionalHelmChart
+        uses: bitovi/github-actions-deploy-eks-helm@v1.2.4
+        with:
+          aws-region: ${{vars.REGION}}
+          cluster-name: ${{vars.CLUSTER}}
+          config-files: infrastructure/helm/values.yaml
+          chart-path: infrastructure/helm
+          namespace: ${{vars.NAMESPACE}}
+          values: ingress.enabled=true,ingress.certificateARN=${{ secrets.CERTIFICATE_ARN }},ingress.host=${{ format('{0}.{1}', 'cms', vars.DOMAIN) }},volume.enabled=true,volume.efsId=${{steps.idFetcher.outputs.efsId}},volume.efsAp=${{steps.idFetcher.outputs.efsAp}}
+          name: cms-additional

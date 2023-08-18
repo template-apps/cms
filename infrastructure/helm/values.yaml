@@ -1,0 +1,14 @@
+ingress:
+  enabled: "to be overridden"
+  certificateARN: "to be overridden"
+  host: "to be overridden"
+  name: cms
+
+volume:
+  enabled: "to be overridden"
+  efsId: "to be overridden"
+  efsAP: "to be overridden"
+
+service:
+  name: cms-wordpress
+  port: 80
