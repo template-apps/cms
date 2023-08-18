@@ -62,7 +62,7 @@ jobs:
             --posix-user Uid=1000,Gid=1000 \
             --root-directory "Path=/bitnami,CreationInfo={OwnerUid=1000,OwnerGid=1000,Permissions=777}" \
             --region ${{vars.REGION}} \
-            --tags service=cms-wordpress \
+            --tags Key=Service,Value=cms-wordpress \
             --query 'AccessPointId' \
             --output text)
           echo "Access point created"
@@ -72,7 +72,7 @@ jobs:
         run: |
           dbInstanceIdentifier=$(aws rds describe-db-instances --db-instance-identifier ${{vars.CLUSTER}}-db --region ${{vars.REGION}} --query "DBInstances[].Endpoint.Address" --output text)
           efsId=$(aws efs describe-file-systems --region ${{vars.REGION}} --output json --query "FileSystems[?contains(CreationToken, 'efs-${{vars.CLUSTER}}')].FileSystemId" --output text)
-          efsAp=$(aws efs describe-access-points --region ${{vars.REGION}} --output json --query "AccessPoints[?contains(FileSystemId, '$efsId') && Tags[?Key=='service' && Value=='cms-wordpress']].AccessPointId" --output text)
+          efsAp=$(aws efs describe-access-points --region ${{vars.REGION}} --output json --query "AccessPoints[?contains(FileSystemId, '$efsId') && Tags[?Key=='Service' && Value=='cms-wordpress']].AccessPointId" --output text)
           
           echo "dbInstanceIdentifier=$dbInstanceIdentifier" >> $GITHUB_OUTPUT
           echo "efsId=$efsId" >> $GITHUB_OUTPUT
