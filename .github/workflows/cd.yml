@@ -8,11 +8,11 @@ on:
       provisionAP:
         description: "Provision EFS Access point?"
         type: boolean
-      deployWPHelmChart:
-        description: "Install/Upgrade Helm Chart for Bitnami Wordpress?"
+      deployBitnamiHelmChart:
+        description: "Deploy Helm Chart for Bitnami Wordpress?"
         type: boolean
-      deployAdditionalHelmChart:
-        description: "Install/Upgrade Additional Helm Chart (Ingress, VC)?"
+      deployHelmChart:
+        description: "Deploy Additional Helm Chart (Ingress, VC)?"
         type: boolean
 env:
   REPLICA_COUNT: 1
@@ -79,7 +79,7 @@ jobs:
           echo "efsAP=$efsAP" >> $GITHUB_OUTPUT
 
       - name: helm upgrade CMS(Wordpress) chart
-        if: inputs.deployWPHelmChart
+        if: inputs.deployBitnamiHelmChart
         uses: bitovi/github-actions-deploy-eks-helm@v1.2.4
         with:
           aws-region: ${{vars.REGION}}
@@ -87,11 +87,11 @@ jobs:
           chart-repository: oci://registry-1.docker.io
           chart-path: bitnamicharts/wordpress
           namespace: ${{vars.NAMESPACE}}
-          values: externalDatabase.host=${{steps.idFetcher.outputs.dbInstanceIdentifier}},externalDatabase.database=cms,externalDatabase.user=${{secrets.MYSQL_MASTER_USER}},externalDatabase.password=${{secrets.MYSQL_MASTER_PASSWORD}},mariadb.enabled=false,replicaCount=${{env.REPLICA_COUNT}},persistence.existingClaim=cms-files-pvc,nameOverride=cms,service.type=ClusterIP,resources.requests.cpu=1000m,resources.requests.memory=1024Mi
+          values: fullnameOverride=cms,wordpressUsername=admin,wordpressPassword=${{ secrets.WORDPRESS_PASSWORD }},externalDatabase.host=${{steps.idFetcher.outputs.dbInstanceIdentifier}},externalDatabase.database=cms,externalDatabase.user=${{secrets.MYSQL_MASTER_USER}},externalDatabase.password=${{secrets.MYSQL_MASTER_PASSWORD}},mariadb.enabled=false,replicaCount=${{env.REPLICA_COUNT}},persistence.existingClaim=cms-files-pvc,nameOverride=cms,service.type=ClusterIP,resources.requests.cpu=1000m,resources.requests.memory=1024Mi
           name: cms-bitnami
 
       - name: helm upgrade Additional Helm chart
-        if: inputs.deployAdditionalHelmChart
+        if: inputs.deployHelmChart
         uses: bitovi/github-actions-deploy-eks-helm@v1.2.4
         with:
           aws-region: ${{vars.REGION}}
