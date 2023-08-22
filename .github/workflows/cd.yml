@@ -76,7 +76,7 @@ jobs:
           
           echo "dbInstanceIdentifier=$dbInstanceIdentifier" >> $GITHUB_OUTPUT
           echo "efsId=$efsId" >> $GITHUB_OUTPUT
-          echo "efsAP=$efsAP" >> $GITHUB_OUTPUT
+          echo "efsAp=$efsAp" >> $GITHUB_OUTPUT
 
       - name: helm upgrade CMS(Wordpress) chart
         if: inputs.deployBitnamiHelmChart
