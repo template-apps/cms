@@ -99,5 +99,5 @@ jobs:
           config-files: infrastructure/helm/values.yaml
           chart-path: infrastructure/helm
           namespace: ${{vars.NAMESPACE}}
-          values: ingress.enabled=true,ingress.certificateARN=${{ secrets.CERTIFICATE_ARN }},ingress.host=${{ format('{0}.{1}', 'cms', vars.DOMAIN) }},volume.enabled=true,volume.efsId=${{steps.idFetcher.outputs.efsId}},volume.efsAp=${{steps.idFetcher.outputs.efsAp}}
+          values: ingress.enabled=true,ingress.certificateARN=${{ secrets.CERTIFICATE_ARN }},ingress.host=${{ format('{0}.{1}', 'www', vars.DOMAIN) }},ingress.domain=${{ vars.DOMAIN }},ingress.redirectToHostEnabled=true,volume.enabled=true,volume.efsId=${{steps.idFetcher.outputs.efsId}},volume.efsAp=${{steps.idFetcher.outputs.efsAp}}
           name: cms

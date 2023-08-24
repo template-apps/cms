@@ -16,8 +16,23 @@ metadata:
     alb.ingress.kubernetes.io/listen-ports: "[{\"HTTP\": 80}, {\"HTTPS\": 443}]"
     alb.ingress.kubernetes.io/ssl-redirect: "443"
     {{- end }}
+    {{- if .Values.ingress.redirectToHostEnabled }}
+    alb.ingress.kubernetes.io/actions.redirect-to-host: "{\"Type\":\"redirect\",\"RedirectConfig\":{\"Host\":\"{{ .Values.ingress.host }}\",\"Port\":\"443\",\"Protocol\":\"HTTPS\",\"StatusCode\":\"HTTP_302\"}}"
+    {{- end }}
 spec:
   rules:
+    {{- if .Values.ingress.redirectToHostEnabled }}
+    - host: {{ .Values.ingress.domain }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: redirect-to-host
+                port:
+                  name: use-annotation
+    {{- end }}
     - host: {{ .Values.ingress.host }}
       http:
         paths:
@@ -28,4 +43,4 @@ spec:
                 name: {{ .Values.service.name }}
                 port:
                   number: {{ .Values.service.port }}
-{{- end }}
+  {{- end }}

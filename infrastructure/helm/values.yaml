@@ -2,6 +2,8 @@ ingress:
   enabled: "to be overridden"
   certificateARN: "to be overridden"
   host: "to be overridden"
+  redirectToHostEnabled: "to be overridden"
+  domain: "to be overridden"
   name: cms
 
 volume:
